@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра: Сортировка по ударным слогам</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            position: relative;
+            user-select: none;
+        }
+
+        .aurora {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 30%, rgba(102, 200, 255, 0.4) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(240, 147, 251, 0.4) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 70%, rgba(118, 75, 162, 0.3) 0%, transparent 50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: auroraMove 15s ease-in-out infinite alternate;
+        }
+        @keyframes auroraMove {
+            0% { transform: translateX(0) scale(1); }
+            100% { transform: translateX(-30px) scale(1.05); }
+        }
+
+        .floating-elements {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .float-item {
+            position: absolute;
+            font-weight: bold;
+            text-shadow: 0 0 12px rgba(255,255,255,0.9), 0 2px 4px rgba(0,0,0,0.2);
+            animation: floatAround linear infinite;
+            user-select: none;
+        }
+
+        .float-item.letter {
+            font-family: 'Comic Sans MS', cursive;
+        }
+
+        .float-item.emoji {
+            font-size: 2em;
+            text-shadow: 0 0 10px rgba(255,255,255,0.6);
+        }
+
+        @keyframes floatAround {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(100px, -50px) rotate(90deg); }
+            50% { transform: translate(200px, 50px) rotate(180deg); }
+            75% { transform: translate(50px, 100px) rotate(270deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+
+        .game-card {
+            position: relative;
+            z-index: 10;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 25px 30px;
+            background: rgba(255, 255, 255, 0.93);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 2rem;
+            margin: 0 0 10px 0;
+        }
+
+        .instructions {
+            text-align: center;
+            color: #34495e;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .bins-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .bin {
+            flex: 1;
+            min-width: 200px;
+            min-height: 150px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 3px dashed #3498db;
+            border-radius: 16px;
+            padding: 12px;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bin.bin-1 { border-color: #e74c3c; background: rgba(231, 76, 60, 0.15); }
+        .bin.bin-2 { border-color: #f39c12; background: rgba(243, 156, 18, 0.15); }
+        .bin.bin-3 { border-color: #27ae60; background: rgba(39, 174, 96, 0.15); }
+        .bin.bin-4 { border-color: #9b59b6; background: rgba(155, 89, 182, 0.15); }
+
+        .bin.drag-over {
+            transform: scale(1.03);
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        .bin-title {
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .bin-words {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            min-height: 50px;
+            width: 100%;
+        }
+
+        .words-pool {
+            background: rgba(255, 255, 255, 0.75);
+            border-radius: 16px;
+            padding: 15px;
+            min-height: 100px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            border: 2px solid #bdc3c7;
+        }
+
+        .word-card {
+            background: #fff;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #2c3e50;
+            cursor: grab;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            border: 2px solid #3498db;
+            transition: transform 0.15s, box-shadow 0.15s;
+            touch-action: none;
+        }
+
+        .word-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+        }
+
+        .word-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .word-card.ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .word-card.correct {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .word-card.incorrect {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-size: 1.2rem;
+            padding: 12px 28px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: transform 0.1s, background 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+        button:active { transform: scale(0.95); }
+
+        #check-btn { background: #27ae60; color: white; }
+        #check-btn:hover { background: #2ecc71; }
+        #restart-btn { background: #2980b9; color: white; display: none; }
+        #restart-btn:hover { background: #3498db; }
+
+        #result-container {
+            text-align: center;
+            margin-top: 18px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2c3e50;
+            min-height: 30px;
+        }
+
+        #errors-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 16px;
+            border: 2px solid #e74c3c;
+            display: none;
+        }
+
+        #errors-container h3 {
+            color: #e74c3c;
+            margin: 0 0 15px 0;
+            text-align: center;
+            font-size: 1.3rem;
+        }
+
+        .error-word {
+            display: inline-block;
+            background: #fff;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            border: 2px solid #e74c3c;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .error-word .stress-mark {
+            color: #e74c3c;
+            font-size: 1.4rem;
+        }
+
+        @media (max-width: 900px) {
+            .bin { min-width: calc(50% - 10px); }
+        }
+
+        @media (max-width: 600px) {
+            .game-card { margin: 15px 10px; padding: 18px; }
+            h1 { font-size: 1.5rem; }
+            .bin { min-width: 100%; }
+            .word-card { font-size: 1rem; padding: 6px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="aurora"></div>
+    <div class="floating-elements" id="floating-elements"></div>
+
+    <div class="game-card">
+        <h1>🌨️ Сортировка по ударным слогам 🌨️</h1>
+        <p class="instructions">Перетащи каждое слово в нужный прямоугольник: <b style="color:#e74c3c">1-й</b>, <b style="color:#f39c12">2-й</b>, <b style="color:#27ae60">3-й</b> или <b style="color:#9b59b6">4-й</b> ударный слог.</p>
+
+        <div class="bins-container">
+            <div class="bin bin-1" data-bin="1">
+                <div class="bin-title">🔴 1-й ударный слог</div>
+                <div class="bin-words"></div>
+            </div>
+            <div class="bin bin-2" data-bin="2">
+                <div class="bin-title">🟠 2-й ударный слог</div>
+                <div class="bin-words"></div>
+            </div>
+            <div class="bin bin-3" data-bin="3">
+                <div class="bin-title">🟢 3-й ударный слог</div>
+                <div class="bin-words"></div>
+            </div>
+            <div class="bin bin-4" data-bin="4">
+                <div class="bin-title">🟣 4-й ударный слог</div>
+                <div class="bin-words"></div>
+            </div>
+        </div>
+
+        <div class="words-pool" id="words-pool"></div>
+
+        <div class="btn-container">
+            <button id="check-btn">Проверить</button>
+            <button id="restart-btn">Начать заново</button>
+        </div>
+
+        <div id="result-container"></div>
+        
+        <div id="errors-container">
+            <h3>❌ Слова с ошибками (правильные ударения):</h3>
+            <div id="errors-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const letters = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ".split("");
+        const emojis = ["❄️", "☃️", "🌨️", "⭐", "✨", "🎄", "🎅", "🎁"];
+        const letterColors = [
+            "#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF",
+            "#FF6FB5", "#A66CFF", "#00D9FF", "#FF9F45",
+            "#F15BB5", "#00F5D4", "#FEE440", "#9B5DE5",
+            "#FF477E", "#2EC4B6", "#FFBF00", "#E71D36"
+        ];
+        const floatingContainer = document.getElementById('floating-elements');
+
+        function createFloatingItem() {
+            const isEmoji = Math.random() < 0.3;
+            const item = document.createElement('div');
+            item.className = 'float-item ' + (isEmoji ? 'emoji' : 'letter');
+            
+            if (isEmoji) {
+                item.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            } else {
+                item.textContent = letters[Math.floor(Math.random() * letters.length)];
+                item.style.color = letterColors[Math.floor(Math.random() * letterColors.length)];
+            }
+
+            const size = isEmoji ? (1.5 + Math.random() * 1.5) : (2 + Math.random() * 3);
+            const left = Math.random() * 100;
+            const top = Math.random() * 100;
+            const duration = 15 + Math.random() * 20;
+            const delay = Math.random() * -duration;
+            const opacity = 0.6 + Math.random() * 0.3;
+
+            item.style.fontSize = size + 'em';
+            item.style.left = left + '%';
+            item.style.top = top + '%';
+            item.style.animationDuration = duration + 's';
+            item.style.animationDelay = delay + 's';
+            item.style.opacity = opacity;
+
+            const trajectories = ['floatAround', 'floatAround2', 'floatAround3'];
+            item.style.animationName = trajectories[Math.floor(Math.random() * trajectories.length)];
+
+            floatingContainer.appendChild(item);
+        }
+
+        for (let i = 0; i < 30; i++) {
+            createFloatingItem();
+        }
+
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+            @keyframes floatAround2 {
+                0% { transform: translate(0, 0) rotate(0deg); }
+                33% { transform: translate(-150px, 80px) rotate(120deg); }
+                66% { transform: translate(100px, -60px) rotate(240deg); }
+                100% { transform: translate(0, 0) rotate(360deg); }
+            }
+            @keyframes floatAround3 {
+                0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+                50% { transform: translate(120px, 100px) rotate(180deg) scale(1.2); }
+                100% { transform: translate(0, 0) rotate(360deg) scale(1); }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+
+        // ===== Правильные ударения (исправлено: начался́) =====
+        const stressWords = {
+            "алфавит": "алфави́т",
+            "брала": "брала́",
+            "занята": "занята́",
+            "километр": "киломе́тр",
+            "включит": "включи́т",
+            "поняла": "поняла́",
+            "арбуз": "арбу́з",
+            "ожила": "ожила́",
+            "досуг": "досу́г",
+            "изредка": "и́зредка",
+            "ворота": "воро́та",
+            "жаворонок": "жа́воронок",
+            "квартал": "кварта́л",
+            "сантиметр": "сантиме́тр",
+            "звала": "звала́",
+            "повторит": "повтори́т",
+            "положил": "положи́л",
+            "медведями": "медве́дями",
+            "понял": "по́нял",
+            "звонит": "звони́т",
+            "шкафы": "шкафы́",
+            "начала": "начала́",
+            "кладовая": "кладова́я",
+            "самовар": "самова́р",
+            "красивее": "краси́вее",
+            "цемент": "цемент́",
+            "позвонят": "позвоня́т",
+            "взяли": "взя́ли",
+            "магазин": "магази́н",
+            "портфель": "портфе́ль",
+            "поняли": "по́няли",
+            "инструмент": "инструме́нт",
+            "столяр": "столя́р",
+            "ожил": "о́жил",
+            "звонишь": "звони́шь",
+            "средства": "сре́дства",
+            "повторим": "повтори́м",
+            "шофёр": "шофёр",
+            "принял": "при́нял",
+            "положит": "поло́жит",
+            "звоним": "звони́м",
+            "задаст": "зада́ст",
+            "начать": "нача́ть",
+            "углубить": "углуби́ть",
+            "нефтепровод": "нефтепрово́д",
+            "газопровод": "газопрово́д",
+            "жалюзи": "жалюзи́",
+            "избаловать": "избалова́ть",
+            "попила": "попила́",
+            "ходатайствовать": "хода́тайствовать",
+            "договор": "догово́р",
+            "трубопровод": "трубопрово́д",
+            "центнер": "це́нтнер",
+            "хвоя": "хво́я",
+            "крапива": "крапи́ва",
+            "процент": "проце́нт",
+            "завидно": "зави́дно",
+            "искра": "и́скра",
+            "торты": "то́рты",
+            "ненависть": "не́нависть",
+            "ремень": "реме́нь",
+            "бухгалтеры": "бухга́лтеры",
+            "кулинария": "кулина́рия",
+            "каталог": "катало́г",
+            "документ": "докуме́нт",
+            "премировать": "премирова́ть",
+            "сливовый": "сли́вовый",
+            "оптовый": "опто́вый",
+            "краны": "кра́ны",
+            "банты": "ба́нты",
+            "перезвонит": "перезвони́т",
+            "шарфы": "ша́рфы",
+            "кухонный": "ку́хонный",
+            "туфля": "ту́фля",
+            "доверху": "до́верху",
+            "взяла": "взала́",
+            "донельзя": "доне́льзя",
+            "звонят": "звоня́т",
+            "начался": "начался́",
+            "глубоко": "глубоко́",
+            "августовский": "а́вгустовский",
+            "добыча": "добы́ча",
+            "проспала": "проспала́",
+            "гербы": "гербы́",
+            "баловать": "балова́ть"
+        };
+
+        const allWords = [
+            { word: "изредка", stress: 1 }, { word: "жаворонок", stress: 1 },
+            { word: "понял", stress: 1 }, { word: "взяли", stress: 1 },
+            { word: "поняли", stress: 1 }, { word: "ожил", stress: 1 },
+            { word: "средства", stress: 1 }, { word: "центнер", stress: 1 },
+            { word: "хвоя", stress: 1 }, { word: "искра", stress: 1 },
+            { word: "торты", stress: 1 }, { word: "ненависть", stress: 1 },
+            { word: "краны", stress: 1 }, { word: "банты", stress: 1 },
+            { word: "кухонный", stress: 1 }, { word: "туфля", stress: 1 },
+            { word: "доверху", stress: 1 }, { word: "статуя", stress: 1 },
+            { word: "принял", stress: 1 }, { word: "августовский", stress: 1 },
+            { word: "бухгалтеры", stress: 1 }, { word: "сливовый", stress: 1 },
+            { word: "шарфы", stress: 1 },
+            { word: "брала", stress: 2 }, { word: "включит", stress: 2 },
+            { word: "арбуз", stress: 2 }, { word: "досуг", stress: 2 },
+            { word: "квартал", stress: 2 }, { word: "звала", stress: 2 },
+            { word: "цемент", stress: 2 }, { word: "портфель", stress: 2 },
+            { word: "звонит", stress: 2 }, { word: "шкафы", stress: 2 },
+            { word: "столяр", stress: 2 }, { word: "звонишь", stress: 2 },
+            { word: "шофёр", stress: 2 }, { word: "положит", stress: 2 },
+            { word: "звоним", stress: 2 }, { word: "задаст", stress: 2 },
+            { word: "начать", stress: 2 }, { word: "красивее", stress: 2 },
+            { word: "ходатайствовать", stress: 2 }, { word: "крапива", stress: 2 },
+            { word: "процент", stress: 2 }, { word: "завидно", stress: 2 },
+            { word: "ремень", stress: 2 }, { word: "оптовый", stress: 2 },
+            { word: "взяла", stress: 2 }, { word: "донельзя", stress: 2 },
+            { word: "звонят", stress: 2 }, { word: "щавель", stress: 2 },
+            { word: "начался", stress: 2 }, { word: "добыча", stress: 2 },
+            { word: "медведями", stress: 2 }, { word: "гербы", stress: 2 },
+            { word: "алфавит", stress: 3 }, { word: "занята", stress: 3 },
+            { word: "километр", stress: 3 }, { word: "поняла", stress: 3 },
+            { word: "ожила", stress: 3 }, { word: "ворота", stress: 3 },
+            { word: "сантиметр", stress: 3 }, { word: "повторит", stress: 3 },
+            { word: "положил", stress: 3 }, { word: "начала", stress: 3 },
+            { word: "кладовая", stress: 3 }, { word: "самовар", stress: 3 },
+            { word: "позвонят", stress: 3 }, { word: "магазин", stress: 3 },
+            { word: "инструмент", stress: 3 }, { word: "повторим", stress: 3 },
+            { word: "углубить", stress: 3 }, { word: "жалюзи", stress: 3 },
+            { word: "попила", stress: 3 }, { word: "договор", stress: 3 },
+            { word: "каталог", stress: 3 }, { word: "документ", stress: 3 },
+            { word: "перезвонит", stress: 3 }, { word: "глубоко", stress: 3 },
+            { word: "проспала", stress: 3 }, { word: "кулинария", stress: 3 },
+            { word: "баловать", stress: 3 },
+            { word: "нефтепровод", stress: 4 }, { word: "газопровод", stress: 4 },
+            { word: "трубопровод", stress: 4 }, { word: "избаловать", stress: 4 },
+            { word: "премировать", stress: 4 }
+        ];
+
+        const pool = document.getElementById('words-pool');
+        const bins = document.querySelectorAll('.bin');
+        const checkBtn = document.getElementById('check-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const resultContainer = document.getElementById('result-container');
+        const errorsContainer = document.getElementById('errors-container');
+        const errorsList = document.getElementById('errors-list');
+
+        let currentWords = [];
+        let draggedCard = null;
+        let ghostCard = null;
+        let offsetX = 0, offsetY = 0;
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function createCard(item) {
+            const card = document.createElement('div');
+            card.className = 'word-card';
+            card.textContent = item.word;
+            card.dataset.word = item.word;
+            card.dataset.stress = item.stress;
+            card.draggable = true;
+
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = card;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                draggedCard = null;
+            });
+
+            card.addEventListener('touchstart', handleTouchStart, { passive: false });
+            card.addEventListener('touchmove', handleTouchMove, { passive: false });
+            card.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+            return card;
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draggedCard = e.currentTarget;
+            const rect = draggedCard.getBoundingClientRect();
+            offsetX = touch.clientX - rect.left;
+            offsetY = touch.clientY - rect.top;
+
+            ghostCard = draggedCard.cloneNode(true);
+            ghostCard.classList.add('ghost');
+            ghostCard.style.width = rect.width + 'px';
+            ghostCard.style.left = (touch.clientX - offsetX) + 'px';
+            ghostCard.style.top = (touch.clientY - offsetY) + 'px';
+            document.body.appendChild(ghostCard);
+
+            draggedCard.classList.add('dragging');
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!ghostCard) return;
+            const touch = e.touches[0];
+            ghostCard.style.left = (touch.clientX - offsetX) + 'px';
+            ghostCard.style.top = (touch.clientY - offsetY) + 'px';
+
+            bins.forEach(b => b.classList.remove('drag-over'));
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (elemBelow) {
+                const bin = elemBelow.closest('.bin');
+                if (bin) bin.classList.add('drag-over');
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            if (!ghostCard || !draggedCard) return;
+            const touch = e.changedTouches[0];
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+
+            bins.forEach(b => b.classList.remove('drag-over'));
+
+            if (elemBelow) {
+                const bin = elemBelow.closest('.bin');
+                if (bin) {
+                    bin.querySelector('.bin-words').appendChild(draggedCard);
+                } else if (elemBelow.closest('.words-pool') || elemBelow.closest('.game-card')) {
+                    pool.appendChild(draggedCard);
+                }
+            }
+
+            ghostCard.remove();
+            ghostCard = null;
+            draggedCard.classList.remove('dragging');
+            draggedCard = null;
+        }
+
+        bins.forEach(bin => {
+            bin.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                bin.classList.add('drag-over');
+            });
+            bin.addEventListener('dragleave', () => {
+                bin.classList.remove('drag-over');
+            });
+            bin.addEventListener('drop', (e) => {
+                e.preventDefault();
+                bin.classList.remove('drag-over');
+                if (draggedCard) {
+                    bin.querySelector('.bin-words').appendChild(draggedCard);
+                }
+            });
+        });
+
+        pool.addEventListener('dragover', (e) => e.preventDefault());
+        pool.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedCard) pool.appendChild(draggedCard);
+        });
+
+        function generateGame() {
+            pool.innerHTML = '';
+            bins.forEach(b => b.querySelector('.bin-words').innerHTML = '');
+            resultContainer.innerHTML = '';
+            errorsContainer.style.display = 'none';
+            errorsList.innerHTML = '';
+            checkBtn.style.display = 'inline-block';
+            restartBtn.style.display = 'none';
+
+            const byStress = { 1: [], 2: [], 3: [], 4: [] };
+            allWords.forEach(w => byStress[w.stress].push(w));
+
+            currentWords = [
+                ...shuffle(byStress[1]).slice(0, 4),
+                ...shuffle(byStress[2]).slice(0, 4),
+                ...shuffle(byStress[3]).slice(0, 4),
+                ...shuffle(byStress[4]).slice(0, 4)
+            ];
+            currentWords = shuffle(currentWords);
+
+            currentWords.forEach(item => {
+                pool.appendChild(createCard(item));
+            });
+        }
+
+        checkBtn.addEventListener('click', () => {
+            let correct = 0;
+            let total = 0;
+            const errors = [];
+
+            document.querySelectorAll('.word-card').forEach(card => {
+                total++;
+                const parent = card.parentElement.closest('.bin');
+                const expectedStress = parseInt(card.dataset.stress);
+                const word = card.dataset.word;
+                let placedBin = null;
+                if (parent) {
+                    placedBin = parseInt(parent.dataset.bin);
+                }
+
+                if (placedBin === expectedStress) {
+                    correct++;
+                    card.classList.add('correct');
+                } else {
+                    card.classList.add('incorrect');
+                    errors.push(word);
+                    setTimeout(() => {
+                        card.classList.remove('incorrect', 'correct');
+                        pool.appendChild(card);
+                    }, 1800);
+                }
+            });
+
+            let message = "";
+            if (correct === total) {
+                message = `🎉 Великолепно! Все ${correct} из ${total} слов разложены верно!`;
+            } else if (correct >= total * 0.8) {
+                message = `👍 Отлично! ${correct} из ${total} правильно. Ошибки вернулись в общий список.`;
+            } else if (correct >= total * 0.5) {
+                message = `🤔 Неплохо! ${correct} из ${total}. Попробуй ещё раз!`;
+            } else {
+                message = `💪 ${correct} из ${total}. Потренируйся ещё — у тебя получится!`;
+            }
+
+            resultContainer.innerHTML = `<h2>${message}</h2>`;
+            
+            if (errors.length > 0) {
+                errorsList.innerHTML = '';
+                errors.forEach(word => {
+                    const errorWord = document.createElement('span');
+                    errorWord.className = 'error-word';
+                    const stressedWord = stressWords[word] || word;
+                    errorWord.innerHTML = stressedWord;
+                    errorsList.appendChild(errorWord);
+                });
+                errorsContainer.style.display = 'block';
+            }
+
+            checkBtn.style.display = 'none';
+            restartBtn.style.display = 'inline-block';
+        });
+
+        restartBtn.addEventListener('click', generateGame);
+
+        generateGame();
+    </script>
+</body>
+</html>
